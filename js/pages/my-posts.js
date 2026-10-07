@@ -145,6 +145,15 @@ LF.pages = LF.pages || {};
   }
 
   function render(root) {
+    // 全量重绘会重建滚动容器，先记录滚动位置，重绘后还原，避免更新状态/筛选后回到顶部
+    var scrollElBefore = root.querySelector('[data-role="scroll"]');
+    var savedScrollTop = scrollElBefore ? scrollElBefore.scrollTop : 0;
+    // 已打开的弹层先摘出并保留同一节点，重绘后原样插回：
+    // 既不会被 innerHTML 销毁，也不会因重建而重播上滑动画 / 丢失焦点（背景“弹一下”）
+    var keptProfile = root.querySelector('.profile-sheet-mask');
+    var keptStatus = root.querySelector('.status-sheet');
+    if (keptProfile) root.removeChild(keptProfile);
+    if (keptStatus) root.removeChild(keptStatus);
     var listHtml = state.list.length > 0
       ? '<div class="post-list" data-role="scroll"><div class="post-list-inner">' +
         state.list.map(cardHtml).join('') +
@@ -183,7 +192,13 @@ LF.pages = LF.pages || {};
         listHtml +
       '</div>';
 
+    var scrollElAfter = root.querySelector('[data-role="scroll"]');
+    if (scrollElAfter) scrollElAfter.scrollTop = savedScrollTop;
     bindScroll(root);
+
+    // 把摘出的弹层原节点插回（保持打开状态、不重播动画）
+    if (keptProfile) root.appendChild(keptProfile);
+    if (keptStatus) root.appendChild(keptStatus);
   }
 
   // 挂载时绑定一次 click 委托（状态弹层是 root 的子元素，同样由它处理）
@@ -246,12 +261,7 @@ LF.pages = LF.pages || {};
     });
   }
 
-  function openSheet(root) {
-    var item = state.currentItem;
-    closeSheet(root);
-    if (!item) return;
-
-    state.currentItem = item;
+  function mountStatusSheet(root) {
     var wrap = document.createElement('div');
     wrap.innerHTML = statusSheetHtml();
     // 点击遮罩空白处关闭（内容区按钮由 root 上的委托统一处理）
@@ -262,11 +272,32 @@ LF.pages = LF.pages || {};
     root.appendChild(sheet);
   }
 
+  function openSheet(root) {
+    var item = state.currentItem;
+    closeSheet(root);
+    if (!item) return;
+
+    state.currentItem = item;
+    mountStatusSheet(root);
+  }
+
   function closeSheet(root) {
     var sheet = root.querySelector('.status-sheet');
     if (sheet) sheet.remove();
     state.statusModalVisible = false;
     state.currentItem = null;
+  }
+
+  function mountProfileSheet(root) {
+    var wrap = document.createElement('div');
+    wrap.innerHTML = profileSheetHtml();
+    var mask = wrap.firstChild;
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask) closeProfileSheet(root);
+    });
+    root.appendChild(mask);
+    // 不在打开时自动 focus 输入框：移动端会立刻唤起键盘并在弹层上滑动画期间触发
+    // 滚动对齐，把背景页面“顶一下”；需要输入时用户点击对应输入框即可。
   }
 
   function openProfileSheet(root) {
@@ -278,17 +309,7 @@ LF.pages = LF.pages || {};
       college: user.college || '',
       grade: user.grade || ''
     };
-
-    var wrap = document.createElement('div');
-    wrap.innerHTML = profileSheetHtml();
-    var mask = wrap.firstChild;
-    mask.addEventListener('click', function (e) {
-      if (e.target === mask) closeProfileSheet(root);
-    });
-    root.appendChild(mask);
-
-    var input = root.querySelector('[data-profile-field="nickname"]');
-    if (input) input.focus();
+    mountProfileSheet(root);
   }
 
   function closeProfileSheet(root) {
