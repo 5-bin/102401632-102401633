@@ -154,14 +154,24 @@ window.LF = window.LF || {};
   function searchItems(params) {
     return delay(function () {
       params = params || {};
-      var keyword = (params.keyword || '').trim().toLowerCase();
+      var keyword = String(params.keyword || '').trim().toLowerCase();
+      var location = String(params.location || '').trim().toLowerCase();
       var list = currentState().items.filter(function (it) {
         if (params.type && params.type !== 'all' && it.type !== params.type) return false;
-        if (!keyword) return true;
+        if (params.categoryCode && it.categoryCode !== params.categoryCode) return false;
+        if (location && it.location.toLowerCase().indexOf(location) < 0) return false;
+        if (params.status === 'ongoing' && !ONGOING_STATUS[it.status]) return false;
+        if (params.status === 'closed' && ONGOING_STATUS[it.status]) return false;
         var hay = [it.name, it.location, it.description || '', it.itemNo].join(' ').toLowerCase();
-        return hay.indexOf(keyword) > -1;
+        return !keyword || hay.indexOf(keyword) > -1;
       });
-      var result = paginate(sortByPublishedDesc(list), params);
+      var sort = params.sort || 'newest';
+      list.sort(function (a, b) {
+        var field = sort === 'occurred' ? 'occurredAt' : 'publishedAt';
+        var direction = sort === 'oldest' ? 1 : -1;
+        return (a[field] === b[field] ? a.id - b.id : (a[field] < b[field] ? -1 : 1)) * direction;
+      });
+      var result = paginate(list, params);
       result.records = result.records.map(summaryVO);
       return result;
     });
