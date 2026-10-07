@@ -302,6 +302,7 @@ LF.pages = LF.pages || {};
   }
 
   LF.pages.publish = {
+    discardView: function () { state = initialState(); mounted = false; },
     mount: function (main, query) {
       var root = document.createElement('div');
       root.style.flex = '1';

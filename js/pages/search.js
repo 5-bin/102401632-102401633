@@ -22,9 +22,7 @@ LF.pages = LF.pages || {};
   function cardHtml(item) {
     return '<div class="result-card" data-id="' + item.id + '">' +
       '<div class="result-cover">' +
-        (item.coverImageUrl
-          ? '<img src="' + esc(item.coverImageUrl) + '" class="cover-img" alt="" />'
-          : '<span class="cover-placeholder">📦</span>') +
+        LF.ui.coverHtml(item) +
       '</div>' +
       '<div class="result-info">' +
         '<div class="result-tags">' +
